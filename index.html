@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>中国地图</title>
+    <script src="echarts.js"></script>
+  </head>
+  <body>
+    <div id="main" style="width: 100%; height: 800px"></div>
+
+    <script>
+      let myChart
+      let options
+      let parentName = 'china'
+      const mapLevel = 3 // 当前地图的层级
+      const levelReflection = [
+        // 地图的层级关系
+        { name: 'province', level: 1 },
+        { name: 'city', level: 2 },
+        { name: 'district', level: 3 },
+      ]
+      load()
+
+      async function load() {
+        var url = '/assets/中华人民共和国.json' /*json文件url*/
+        let response = await fetch(url)
+        let chinaMapJson = await response.json()
+        var chartDom = document.getElementById('main')
+        echarts.registerMap('china', chinaMapJson)
+        myChart = echarts.init(chartDom)
+        myChart.showLoading()
+        init()
+
+        const _this = this
+        // 绑定地图下钻的方法
+        myChart.on('click', function (event) {
+          if (_this.isValidLevel(event)) {
+            _this.goDown(event.name)
+          }
+        })
+        // 绑定地图上钻的方法
+        myChart.getZr().on('click', function (event) {
+          // 没有 target 意味着鼠标/指针不在任何一个图形元素上，它是从“空白处”触发的。
+          if (!event.target) {
+            _this.goUp()
+          }
+        })
+      }
+
+      function filterAdcode(chooseName, type = 'down') {
+        // 获取当前地图的json字符串
+        let currentMap = echarts.getMap(options.geo.map).geoJson.features
+        let adcode = null
+        if (type === 'down') {
+          parentName = chooseName
+          adcode = currentMap.filter(item => item.properties.name === chooseName)[0].properties.adcode
+        } else {
+          // acroutes是访问的路径
+          let acroutes = currentMap[0].properties.acroutes
+          adcode = acroutes.length > 2 ? acroutes[acroutes.length - 2] : acroutes[0]
+        }
+        return adcode ? adcode : 100000 // 这里的100000 表示中华人民共和国地图
+      }
+
+      function isValidLevel(event) {
+        // 获取当前地图的json字符串
+        let currentMap = echarts.getMap(options.geo.map).geoJson.features
+        const level = currentMap.filter(item => item.properties.name === event.name).map(ele => ele.properties.level)
+        // 判断当前点击的区域是否满足设置的层级
+        return (
+          level[0] &&
+          levelReflection
+            .filter(item => item.level < mapLevel)
+            .map(ele => ele.name)
+            .includes(level[0])
+        )
+      }
+
+      async function goDown(mapName) {
+        // console.log(echarts.getMap('china').geoJson.features)
+
+        // 获取当前点击对象的adcode
+        const adcode = filterAdcode(mapName)
+        myChart.showLoading()
+        let response = await fetch(`https://geo.datav.aliyun.com/areas_v3/bound/${adcode}_full.json`)
+        let provinceJson = await response.json()
+        echarts.registerMap(mapName, provinceJson)
+
+        // 重新渲染地图
+        options.geo.map = mapName
+        options.geo.zoom = 1.2
+
+        myChart.setOption(options)
+        myChart.hideLoading()
+      }
+
+      async function goUp(mapName) {
+        const adcode = filterAdcode(mapName, 'up')
+        myChart.showLoading()
+        let response = await fetch(`https://geo.datav.aliyun.com/areas_v3/bound/${adcode}_full.json`)
+        let chinaMapJson = await response.json()
+        echarts.registerMap(parentName, chinaMapJson)
+
+        options.geo.map = parentName
+        options.geo.zoom = parentName == 'china' ? 1.5 : 1.2
+
+        myChart.setOption(options)
+        myChart.hideLoading()
+      }
+
+      function init() {
+        options = {
+          title: {
+            text: '中华人民共和国地图',
+            textStyle: {
+              color: '#000',
+              fontWeight: '700',
+              lineHeight: 36,
+              align: 'left',
+            },
+          },
+          tooltip: {
+            trigger: 'item',
+            textStyle: {
+              fontSize: 14,
+            },
+            backgroundColor: '#fff',
+            showDelay: 0,
+            transitionDuration: 0.2,
+            formatter: function (item) {
+              if (!item.name) {
+                return null
+              }
+              if (!item.value) {
+                return `${item.name}: 0`
+              } else {
+                return `${item.name}:${item.value.toLocaleString()}`
+              }
+            },
+          },
+          // 热度组件
+          visualMap: {
+            top: 'top',
+            min: 0,
+            max: 1000,
+            left: 0,
+            bottom: 40,
+            showLabel: false,
+            show: false,
+            pieces: [
+              {
+                gt: 100,
+                label: '> 100',
+                color: '#072078',
+              },
+              {
+                gte: 50,
+                lte: 100,
+                label: '50-100',
+                color: '#97e1ff',
+              },
+              {
+                gte: 10,
+                lte: 50,
+                label: '10-50',
+                color: '#b8e3ff',
+              },
+              {
+                lt: 199,
+                label: '<10',
+                color: '#d2e3ff',
+              },
+            ],
+          },
+
+          geo: {
+            map: 'china', // 此处的名称china同注册地图名称一致
+            roam: 'scale', // 关闭鼠标平移和缩放
+            label: {
+              show: false, // 关闭地图上的标签
+            },
+            // 地图缩放的比例上下限
+            scaleLimit: {
+              min: 1,
+              max: 10,
+            },
+            zoom: 1.5, // 地图缩放比例
+            layoutCenter: ['50%', '50%'],
+            layoutSize: 500,
+            itemStyle: {
+              normal: {
+                borderColor: '#fff',
+              },
+              emphasis: {
+                areaColor: '#fed884',
+                shadowOffsetX: 0,
+                shadowOffsetY: 0,
+                borderWidth: 0,
+              },
+            },
+          },
+          series: [
+            {
+              name: '地域统计',
+              type: 'map',
+              roam: false,
+              geoIndex: 0,
+              // data: this.dataMap, // 这里的data是显示数值的
+            },
+          ],
+        }
+        myChart.hideLoading()
+        myChart.setOption(options)
+      }
+    </script>
+  </body>
+</html>
