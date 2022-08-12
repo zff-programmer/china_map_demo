@@ -24,7 +24,7 @@
       load()
 
       async function load() {
-        var url = '/assets/中华人民共和国.json' /*json文件url*/
+        var url = './assets/中华人民共和国.json' /*json文件url*/
         let response = await fetch(url)
         let chinaMapJson = await response.json()
         var chartDom = document.getElementById('main')
