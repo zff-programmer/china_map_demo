@@ -24,7 +24,7 @@
       load()
 
       async function load() {
-        var url = './assets/中华人民共和国.json' /*json文件url*/
+        var url = './mapFile/中华人民共和国.json' /*json文件url*/
         let response = await fetch(url)
         let chinaMapJson = await response.json()
         var chartDom = document.getElementById('main')
@@ -84,7 +84,7 @@
         // 获取当前点击对象的adcode
         const adcode = filterAdcode(mapName)
         myChart.showLoading()
-        let response = await fetch(`https://geo.datav.aliyun.com/areas_v3/bound/${adcode}_full.json`)
+        let response = await fetch(`./mapFile/${mapName}.json`)
         let provinceJson = await response.json()
         echarts.registerMap(mapName, provinceJson)
 
@@ -97,9 +97,10 @@
       }
 
       async function goUp(mapName) {
+        mapName = '中华人民共和国'
         const adcode = filterAdcode(mapName, 'up')
         myChart.showLoading()
-        let response = await fetch(`https://geo.datav.aliyun.com/areas_v3/bound/${adcode}_full.json`)
+        let response = await fetch(`./mapFile/${mapName}.json`)
         let chinaMapJson = await response.json()
         echarts.registerMap(parentName, chinaMapJson)
 
